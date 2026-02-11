@@ -96,6 +96,7 @@ def abrir_asistencias():
                  state="readonly", font=("Arial", 12), width=18).grid(row=6, column=1, padx=5, pady=5, sticky="e")
 
     # --- Fecha de captura ---
+        # --- Fecha de captura ---
     tk.Label(marco_form, text="Fecha de Captura (DD/MM/YYYY):", bg="#f0f0f0",
              font=("Arial", 12)).grid(row=7, column=0, padx=5, pady=5, sticky="e")
 
@@ -103,21 +104,40 @@ def abrir_asistencias():
     # Inicializar con la fecha actual en formato dd/mm/yyyy
     fecha_captura_var.set(datetime.now().strftime("%d/%m/%Y"))
 
-    # Guardamos la referencia del Entry en una variable para poder trabajar con el cursor
     entry_fecha = tk.Entry(marco_form, textvariable=fecha_captura_var,
                            font=("Arial", 12), width=40)
     entry_fecha.grid(row=7, column=1, padx=5, pady=5)
-    # --- Función para mover cursor con Enter ---
-    def mover_cursor(event):
-        texto = fecha_captura_var.get()
-        pos = entry_fecha.index(tk.INSERT)
-        siguiente = texto.find("/", pos)
-        if siguiente != -1:
-            # Colocar cursor justo antes de la diagonal encontrada
-            entry_fecha.icursor(siguiente)
-        else:
-            # Si ya pasó el último "/", capturar automáticamente
-            guardar_asistencia()
+
+    # --- Función para formatear y mover cursor automáticamente ---
+    def formatear_fecha(event):
+        texto = fecha_captura_var.get().replace("/", "")
+        # Solo permitir dígitos
+        if not texto.isdigit():
+            return
+
+        # Insertar diagonales automáticamente
+        if len(texto) > 2 and texto[2] != "/":
+            texto = texto[:2] + "/" + texto[2:]
+        if len(texto) > 5 and texto[5] != "/":
+            texto = texto[:5] + "/" + texto[5:]
+
+        # Limitar a 10 caracteres (dd/mm/yyyy)
+        if len(texto) > 10:
+            texto = texto[:10]
+
+        fecha_captura_var.set(texto)
+
+        # Mover cursor automáticamente al final
+        entry_fecha.icursor(len(texto))
+
+        # Si ya completó la fecha, pasar al siguiente campo (hora de entrada)
+        if len(texto) == 10:
+            # Mueve el foco al campo de hora de entrada
+            entry_fecha.tk_focusNext().focus()
+
+    # Asociar evento de teclado
+    entry_fecha.bind("<KeyRelease>", formatear_fecha)
+
 
     # Asociar Enter al movimiento
     entry_fecha.bind("<Return>", mover_cursor)
