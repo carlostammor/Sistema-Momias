@@ -14,6 +14,7 @@ def abrir_asistencias():
     ventana_asistencias.state("zoomed")
     ventana_asistencias.config(bg="#f0f0f0")
     ventana_asistencias.grab_set()
+    print("hola")
   
     # --- Título ---
     tk.Label(ventana_asistencias, text="Registro de Asistencias",
