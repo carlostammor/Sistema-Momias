@@ -1,354 +1,275 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 import sqlite3
-import pandas as pd
-import pdfkit
-import re
 
-# --- Ventana principal ---
-root = tk.Tk()
-root.title("Gestión de Empleados")
-root.state("zoomed")  # pantalla completa
-
-# --- Frames principales ---
-frame_left = tk.Frame(root, bg="#1A237E")
-frame_left.pack(side="left", fill="both", expand=True)
-
-frame_right = tk.Frame(root, bg="#0D47A1")
-frame_right.pack(side="right", fill="y")
-
-# --- Variables del formulario ---
-nombre_var = tk.StringVar()
-apellidos_var = tk.StringVar()
-codigo_var = tk.StringVar()
-puesto_var = tk.StringVar()
-contrato_var = tk.StringVar()
-sucursal_var = tk.StringVar()
-estatus_var = tk.StringVar(value="Activo")
-telefono_var = tk.StringVar()
-correo_var = tk.StringVar()
-fecha_ingreso_var = tk.StringVar()
-fecha_baja_var = tk.StringVar()
-uniforme_var = tk.BooleanVar()
-documento_pdf_var = tk.StringVar()
-salario_var = tk.StringVar()
-# --- Formulario de captura ---
-frame_form = tk.Frame(frame_left, bg="#1A237E")
-frame_form.pack(pady=20, fill="x")
-
-campos = [
-    ("Nombre:", nombre_var),
-    ("Apellidos:", apellidos_var),
-    ("Código:", codigo_var),
-    ("Puesto:", puesto_var),
-    ("Contrato:", contrato_var),
-    ("Sucursal:", sucursal_var),
-    ("Estatus:", estatus_var),
-    ("Teléfono:", telefono_var),
-    ("Correo:", correo_var),
-    ("Fecha de ingreso (dd/mm/yyyy):", fecha_ingreso_var),
-    ("Fecha de baja (dd/mm/yyyy):", fecha_baja_var),
-    ("Documento PDF:", documento_pdf_var),
-    ("Salario Base:", salario_var)
-]
-
-for i, (label, var) in enumerate(campos):
-    tk.Label(frame_form, text=label, font=("Arial", 12), fg="white",
-             bg="#1A237E").grid(row=i, column=0, sticky="w", pady=5)
-    tk.Entry(frame_form, textvariable=var, font=("Arial", 12),
-             width=30).grid(row=i, column=1, pady=5)
-
-# Campo uniforme
-tk.Checkbutton(frame_form, text="Uniforme entregado", variable=uniforme_var,
-               font=("Arial", 12), fg="white", bg="#1A237E").grid(row=len(campos), column=0, columnspan=2, pady=5)
-# --- Funciones principales ---
+# Ruta oficial de la base de datos
+DB_PATH = "base_datos/personal.db"
 
 
-def limpiar_formulario():
-    for var in [nombre_var, apellidos_var, codigo_var, puesto_var, contrato_var,
-                sucursal_var, telefono_var, correo_var, fecha_ingreso_var,
-                fecha_baja_var, documento_pdf_var, salario_var]:
-        var.set("")
-    estatus_var.set("Activo")
-    uniforme_var.set(False)
+def abrir_empleados():
+    ventana_empleados = tk.Toplevel()
+    ventana_empleados.title("Gestión de Empleados")
+    ventana_empleados.state("zoomed")
+    ventana_empleados.config(bg="#f0f0f0")
+    ventana_empleados.grab_set()
 
+    tk.Label(ventana_empleados, text="Gestión de Empleados",
+             font=("Arial", 24, "bold"), bg="#f0f0f0").pack(pady=20)
 
-def validar_fecha(fecha):
-    patron = r"^\d{2}/\d{2}/\d{4}$"
-    return re.match(patron, fecha) is not None
+    # --- Formulario ---
+    marco_form = tk.Frame(ventana_empleados, bg="#f0f0f0")
+    marco_form.pack(pady=10)
 
+    # Campos de texto
+    campos = ["Nombre", "Apellido Paterno", "Apellido Materno", "Sueldo Base"]
+    entries = {}
+    for i, campo in enumerate(campos):
+        tk.Label(marco_form, text=f"{campo}:", bg="#f0f0f0", font=(
+            "Arial", 12)).grid(row=i, column=0, padx=5, pady=5, sticky="e")
+        entry = tk.Entry(marco_form, font=("Arial", 12), width=40)
+        entry.grid(row=i, column=1, padx=5, pady=5)
+        entries[campo] = entry
 
-def guardar_empleado():
-    if fecha_ingreso_var.get() and not validar_fecha(fecha_ingreso_var.get()):
-        messagebox.showwarning(
-            "Validación", "La fecha de ingreso debe estar en formato dd/mm/yyyy.")
-        return
-    if fecha_baja_var.get() and not validar_fecha(fecha_baja_var.get()):
-        messagebox.showwarning(
-            "Validación", "La fecha de baja debe estar en formato dd/mm/yyyy.")
-        return
+    # Menú desplegable: Puesto
+    tk.Label(marco_form, text="Puesto:", bg="#f0f0f0", font=("Arial", 12)).grid(
+        row=len(campos), column=0, padx=5, pady=5, sticky="e")
+    puesto_var = tk.StringVar()
+    combo_puesto = ttk.Combobox(marco_form, textvariable=puesto_var,
+                                values=["Cajero", "Freidor", "Despacho"],
+                                state="readonly", font=("Arial", 12), width=38)
+    combo_puesto.grid(row=len(campos), column=1, padx=5, pady=5)
 
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO empleados (nombre, apellidos, codigo, puesto, contrato, sucursal, estatus, telefono, correo, fecha_ingreso, fecha_baja, uniforme, documento_pdf, salario_base)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (nombre_var.get(), apellidos_var.get(), codigo_var.get(), puesto_var.get(),
-          contrato_var.get(), sucursal_var.get(), estatus_var.get(), telefono_var.get(),
-          correo_var.get(), fecha_ingreso_var.get(), fecha_baja_var.get(),
-          "Sí" if uniforme_var.get() else "No", documento_pdf_var.get(), salario_var.get()))
-    conn.commit()
-    conn.close()
-    messagebox.showinfo(
-        "Confirmación", f"Empleado {nombre_var.get()} {apellidos_var.get()} registrado correctamente.")
-    limpiar_formulario()
+    # Sueldos diarios de prueba según puesto
+    sueldos_puestos = {
+        "Cajero": 234,
+        "Freidor": 244,
+        "Despacho": 254
+    }
 
+    def actualizar_sueldo(event=None):
+        puesto = puesto_var.get()
+        if puesto in sueldos_puestos:
+            entries["Sueldo Base"].delete(0, tk.END)
+            entries["Sueldo Base"].insert(0, sueldos_puestos[puesto])
 
-def buscar_empleado():
-    codigo = codigo_var.get()
-    if not codigo:
-        messagebox.showwarning(
-            "Validación", "Ingresa el código del empleado para buscar.")
-        return
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT nombre, apellidos, puesto, contrato, sucursal, estatus, telefono, correo, fecha_ingreso, fecha_baja, uniforme, documento_pdf, salario_base
-        FROM empleados WHERE codigo=?
-    """, (codigo,))
-    resultado = cursor.fetchone()
-    conn.close()
-    if resultado:
-        nombre_var.set(resultado[0])
-        apellidos_var.set(resultado[1])
-        puesto_var.set(resultado[2])
-        contrato_var.set(resultado[3])
-        sucursal_var.set(resultado[4])
-        estatus_var.set(resultado[5])
-        telefono_var.set(resultado[6])
-        correo_var.set(resultado[7])
-        fecha_ingreso_var.set(resultado[8])
-        fecha_baja_var.set(resultado[9])
-        uniforme_var.set(True if resultado[10] == "Sí" else False)
-        documento_pdf_var.set(resultado[11])
-        salario_var.set(resultado[12])
-        messagebox.showinfo(
-            "Resultado", f"Empleado {resultado[0]} {resultado[1]} encontrado.")
-    else:
-        messagebox.showwarning(
-            "No encontrado", "No existe un empleado con ese código.")
+    combo_puesto.bind("<<ComboboxSelected>>", actualizar_sueldo)
 
+    # Menú desplegable: Tipo de contrato
+    tk.Label(marco_form, text="Tipo de Contrato:", bg="#f0f0f0", font=(
+        "Arial", 12)).grid(row=len(campos)+1, column=0, padx=5, pady=5, sticky="e")
+    contrato_var = tk.StringVar()
+    combo_contrato = ttk.Combobox(marco_form, textvariable=contrato_var,
+                                  values=["Eventual", "Tiempo Determinado",
+                                          "Tiempo Indeterminado"],
+                                  state="readonly", font=("Arial", 12), width=38)
+    combo_contrato.grid(row=len(campos)+1, column=1, padx=5, pady=5)
+    # --- Funciones auxiliares ---
 
-def actualizar_empleado():
-    codigo = codigo_var.get()
-    if not codigo:
-        messagebox.showwarning(
-            "Validación", "Ingresa el código del empleado para actualizar.")
-        return
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE empleados
-        SET nombre=?, apellidos=?, puesto=?, contrato=?, sucursal=?, estatus=?, telefono=?, correo=?, fecha_ingreso=?, fecha_baja=?, uniforme=?, documento_pdf=?, salario_base=?
-        WHERE codigo=?
-    """, (nombre_var.get(), apellidos_var.get(), puesto_var.get(), contrato_var.get(),
-          sucursal_var.get(), estatus_var.get(), telefono_var.get(), correo_var.get(),
-          fecha_ingreso_var.get(), fecha_baja_var.get(), "Sí" if uniforme_var.get() else "No",
-          documento_pdf_var.get(), salario_var.get(), codigo))
-    conn.commit()
-    conn.close()
-    messagebox.showinfo(
-        "Confirmación", f"Empleado {nombre_var.get()} {apellidos_var.get()} actualizado correctamente.")
+    def limpiar_formulario():
+        for campo in campos:
+            entries[campo].delete(0, tk.END)
+        puesto_var.set("")
+        contrato_var.set("")
 
+    def generar_codigo_empleado():
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT MAX(id_empleado) FROM empleados")
+        ultimo_id = cursor.fetchone()[0]
+        conn.close()
+        if ultimo_id is None:
+            ultimo_id = 0
+        nuevo_id = ultimo_id + 1
+        return f"EMP-{nuevo_id:05d}"
 
-# --- Botones principales (panel derecho) ---
-tk.Button(frame_right, text="Guardar", font=("Arial", 12, "bold"),
-          bg="#FFD700", fg="black", width=20, command=guardar_empleado).pack(pady=10)
+    def guardar_empleado():
+        datos = [entries[campo].get().strip() for campo in campos]
+        puesto = puesto_var.get().strip()
+        contrato = contrato_var.get().strip()
 
-tk.Button(frame_right, text="Corregir", font=("Arial", 12, "bold"),
-          bg="#FF9800", fg="white", width=20, command=actualizar_empleado).pack(pady=10)
+        if not all(datos) or not puesto or not contrato:
+            messagebox.showerror("Error", "Todos los campos son obligatorios")
+            return
 
-tk.Button(frame_right, text="Buscar", font=("Arial", 12, "bold"),
-          bg="#4CAF50", fg="white", width=20, command=buscar_empleado).pack(pady=10)
+        try:
+            sueldo = float(datos[3])
+        except ValueError:
+            messagebox.showerror("Error", "El sueldo debe ser numérico")
+            return
 
-tk.Button(frame_right, text="Limpiar", font=("Arial", 12, "bold"),
-          bg="#2196F3", fg="white", width=20, command=limpiar_formulario).pack(pady=10)
+        codigo = generar_codigo_empleado()
 
-tk.Button(frame_right, text="Salir", font=("Arial", 12, "bold"),
-          bg="#B71C1C", fg="white", width=20, command=root.destroy).pack(pady=10)
-# --- Frame para tabla con scroll dentro de la columna izquierda ---
-frame_tabla = tk.Frame(frame_left, bg="#1A237E")
-frame_tabla.pack(pady=20, fill="both", expand=True)
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""INSERT INTO empleados 
+                              (codigo_empleado, nombre, apellido_paterno, apellido_materno, sueldo_base, puesto, tipo_contrato) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                           (codigo, datos[0], datos[1], datos[2], sueldo, puesto, contrato))
+            conn.commit()
+            conn.close()
 
-scrollbar = tk.Scrollbar(frame_tabla, orient="vertical")
-scrollbar.pack(side="right", fill="y")
+            messagebox.showinfo(
+                "Éxito", f"Empleado registrado con código {codigo}")
+            limpiar_formulario()
+            cargar_empleados()
+        except Exception as e:
+            messagebox.showerror("Error al guardar", str(e))
 
-tabla_empleados = ttk.Treeview(
-    frame_tabla,
-    columns=("Nombre", "Apellidos", "Código", "Puesto",
-             "Contrato", "Sucursal", "Estatus"),
-    show="headings",
-    yscrollcommand=scrollbar.set
-)
-tabla_empleados.pack(fill="both", expand=True)
-scrollbar.config(command=tabla_empleados.yview)
+    tk.Button(marco_form, text="Guardar empleado", command=guardar_empleado,
+              bg="#4CAF50", fg="white", font=("Arial", 12, "bold")).grid(row=len(campos)+2, columnspan=2, pady=10)
 
-# Encabezados
-for col in ("Nombre", "Apellidos", "Código", "Puesto", "Contrato", "Sucursal", "Estatus"):
-    tabla_empleados.heading(col, text=col)
-    tabla_empleados.column(col, width=140, anchor="center")
+    # --- Buscar empleado ---
+    marco_buscar = tk.Frame(ventana_empleados, bg="#f0f0f0")
+    marco_buscar.pack(pady=10)
+    entry_buscar = tk.Entry(marco_buscar, font=("Arial", 12), width=40)
+    entry_buscar.pack(side="left", padx=5)
 
-# --- Función para cargar empleados ---
+    def buscar_empleado():
+        criterio = entry_buscar.get()
+        for fila in tabla.get_children():
+            tabla.delete(fila)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT id_empleado, codigo_empleado, nombre, apellido_paterno, apellido_materno, puesto, tipo_contrato, sueldo_base 
+                          FROM empleados 
+                          WHERE nombre LIKE ? OR apellido_paterno LIKE ? OR apellido_materno LIKE ? 
+                          OR codigo_empleado LIKE ? OR id_empleado LIKE ?""",
+                       (f"%{criterio}%", f"%{criterio}%", f"%{criterio}%", f"%{criterio}%", f"%{criterio}%"))
+        for row in cursor.fetchall():
+            tabla.insert("", "end", values=row)
+        conn.close()
 
+    tk.Button(marco_buscar, text="Buscar", command=buscar_empleado,
+              bg="#2196F3", fg="white", font=("Arial", 12, "bold")).pack(side="left", padx=5)
 
-def cargar_empleados(estatus_filtro=None):
-    for row in tabla_empleados.get_children():
-        tabla_empleados.delete(row)
+    # --- Tabla con scroll ---
+    columnas = ("ID", "Código", "Nombre", "Apellido Paterno",
+                "Apellido Materno", "Puesto", "Contrato", "Sueldo Base")
 
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    cursor = conn.cursor()
-    if estatus_filtro:
-        cursor.execute("""
-            SELECT nombre, apellidos, codigo, puesto, contrato, sucursal, estatus 
-            FROM empleados WHERE estatus=?
-        """, (estatus_filtro,))
-    else:
-        cursor.execute("""
-            SELECT nombre, apellidos, codigo, puesto, contrato, sucursal, estatus 
-            FROM empleados
-        """)
-    resultados = cursor.fetchall()
-    conn.close()
+    tabla = ttk.Treeview(ventana_empleados, columns=columnas, show="headings")
 
-    for empleado in resultados:
-        tabla_empleados.insert("", "end", values=empleado)
+    for col in columnas:
+        tabla.heading(col, text=col)
+        tabla.column(col, width=150)
 
-# --- Selección directa desde la lista ---
+    tabla.column("Nombre", width=300)
 
+    # Scroll vertical
+    scroll_y = ttk.Scrollbar(
+        ventana_empleados, orient="vertical", command=tabla.yview)
+    tabla.configure(yscrollcommand=scroll_y.set)
 
-def seleccionar_empleado(event):
-    item = tabla_empleados.selection()
-    if item:
-        valores = tabla_empleados.item(item, "values")
-        codigo_var.set(valores[2])
-        buscar_empleado()
+    # Scroll horizontal
+    scroll_x = ttk.Scrollbar(
+        ventana_empleados, orient="horizontal", command=tabla.xview)
+    tabla.configure(xscrollcommand=scroll_x.set)
 
+    # Empaquetar tabla y scrolls
+    tabla.pack(side="top", fill="both", expand=True, pady=20)
+    scroll_y.pack(side="right", fill="y")
+    scroll_x.pack(side="bottom", fill="x")
 
-tabla_empleados.bind("<<TreeviewSelect>>", seleccionar_empleado)
+    def cargar_empleados():
+        for fila in tabla.get_children():
+            tabla.delete(fila)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT id_empleado, codigo_empleado, nombre, apellido_paterno, 
+                                 apellido_materno, puesto, tipo_contrato, sueldo_base 
+                          FROM empleados""")
+        for row in cursor.fetchall():
+            tabla.insert("", "end", values=row)
+        conn.close()
 
-# --- Frame de filtros dentro de la columna izquierda ---
-frame_filtros = tk.Frame(frame_left, bg="#1A237E")
-frame_filtros.pack(pady=10)
+    # --- Eliminar empleado ---
+    def eliminar_empleado():
+        seleccionado = tabla.selection()
+        if not seleccionado:
+            messagebox.showerror(
+                "Error", "Seleccione un empleado para eliminar")
+            return
+        empleado_id = tabla.item(seleccionado)["values"][0]
+        if messagebox.askyesno("Confirmar", "¿Seguro que desea eliminar este empleado?"):
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM empleados WHERE id_empleado=?", (empleado_id,))
+            conn.commit()
+            conn.close()
+            messagebox.showinfo("Éxito", "Empleado eliminado correctamente")
+            cargar_empleados()
 
-tk.Button(frame_filtros, text="Ver Todos", font=("Arial", 12, "bold"),
-          bg="#FFD700", fg="black", width=15,
-          command=lambda: cargar_empleados()).grid(row=0, column=0, padx=10, pady=5)
+    # --- Editar empleado ---
+    def editar_empleado():
+        seleccionado = tabla.selection()
+        if not seleccionado:
+            messagebox.showerror("Error", "Seleccione un empleado para editar")
+            return
 
-tk.Button(frame_filtros, text="Ver Activos", font=("Arial", 12, "bold"),
-          bg="#4CAF50", fg="white", width=15,
-          command=lambda: cargar_empleados("Activo")).grid(row=0, column=1, padx=10, pady=5)
+        valores = tabla.item(seleccionado)["values"]
+        empleado_id = valores[0]
 
-tk.Button(frame_filtros, text="Ver Inactivos", font=("Arial", 12, "bold"),
-          bg="#B71C1C", fg="white", width=15,
-          command=lambda: cargar_empleados("Inactivo")).grid(row=0, column=2, padx=10, pady=5)
+        # Cargar datos en el formulario
+        entries["Nombre"].delete(0, tk.END)
+        entries["Nombre"].insert(0, valores[2])
+        entries["Apellido Paterno"].delete(0, tk.END)
+        entries["Apellido Paterno"].insert(0, valores[3])
+        entries["Apellido Materno"].delete(0, tk.END)
+        entries["Apellido Materno"].insert(0, valores[4])
+        entries["Sueldo Base"].delete(0, tk.END)
+        entries["Sueldo Base"].insert(0, valores[7])
+        puesto_var.set(valores[5])
+        contrato_var.set(valores[6])
 
-# --- Cargar todos al inicio ---
-cargar_empleados()
-# --- Funciones de reportes y exportación ---
+        def guardar_edicion():
+            nombre = entries["Nombre"].get()
+            ap_paterno = entries["Apellido Paterno"].get()
+            ap_materno = entries["Apellido Materno"].get()
+            sueldo = entries["Sueldo Base"].get()
+            puesto = puesto_var.get()
+            contrato = contrato_var.get()
 
+            if not nombre or not ap_paterno or not puesto or not contrato or not sueldo:
+                messagebox.showerror(
+                    "Error", "Todos los campos son obligatorios")
+                return
 
-def generar_reporte_sucursal():
-    sucursal = sucursal_var.get()
-    if not sucursal:
-        messagebox.showwarning(
-            "Validación", "Ingresa la sucursal para generar reporte.")
-        return
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT nombre, apellidos, codigo, puesto, estatus 
-        FROM empleados WHERE sucursal=?
-    """, (sucursal,))
-    resultados = cursor.fetchall()
-    conn.close()
-    if resultados:
-        reporte = "\n".join(
-            [f"{r[0]} {r[1]} - {r[2]} - {r[3]} - {r[4]}" for r in resultados])
-        messagebox.showinfo("Reporte por Sucursal", reporte)
-    else:
-        messagebox.showinfo("Reporte por Sucursal",
-                            "No hay empleados en esta sucursal.")
+            try:
+                sueldo = float(sueldo)
+            except ValueError:
+                messagebox.showerror("Error", "El sueldo debe ser numérico")
+                return
 
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE empleados 
+                              SET nombre=?, apellido_paterno=?, apellido_materno=?, sueldo_base=?, puesto=?, tipo_contrato=? 
+                              WHERE id_empleado=?""",
+                           (nombre, ap_paterno, ap_materno, sueldo, puesto, contrato, empleado_id))
+            conn.commit()
+            conn.close()
+            messagebox.showinfo("Éxito", "Empleado actualizado correctamente")
+            limpiar_formulario()
+            cargar_empleados()
 
-def exportar_excel():
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    df = pd.read_sql_query("SELECT * FROM empleados", conn)
-    conn.close()
-    archivo = filedialog.asksaveasfilename(
-        defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")]
-    )
-    if archivo:
-        df.to_excel(archivo, index=False)
-        messagebox.showinfo(
-            "Exportación", f"Reporte exportado a Excel en {archivo}")
+        # Botón para confirmar edición dentro del formulario
+        tk.Button(marco_form, text="Guardar cambios", command=guardar_edicion,
+                  bg="#FF9800", fg="white", font=("Arial", 12, "bold")).grid(row=len(campos)+3, columnspan=2, pady=10)
 
+    # --- Barra lateral con botones ---
+    marco_botones_lateral = tk.Frame(ventana_empleados, bg="#f0f0f0")
+    # Ajusta posición según tu resolución
+    marco_botones_lateral.place(x=1000, y=100)
 
-def exportar_pdf():
-    conn = sqlite3.connect(
-        "C:/Users/Carlos/Desktop/Proyecto_Control_Personal/base_datos/personal.db")
-    df = pd.read_sql_query("SELECT * FROM empleados", conn)
-    conn.close()
-    html = df.to_html(index=False)
-    archivo = filedialog.asksaveasfilename(
-        defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")]
-    )
-    if archivo:
-        pdfkit.from_string(html, archivo)
-        messagebox.showinfo(
-            "Exportación", f"Reporte exportado a PDF en {archivo}")
+    tk.Button(marco_botones_lateral, text="Editar empleado", command=editar_empleado,
+              bg="#9C27B0", fg="white", font=("Arial", 12, "bold"), width=20).pack(pady=5)
 
+    tk.Button(marco_botones_lateral, text="Eliminar empleado", command=eliminar_empleado,
+              bg="#f44336", fg="white", font=("Arial", 12, "bold"), width=20).pack(pady=5)
 
-def enviar_whatsapp():
-    telefono = telefono_var.get()
-    if not telefono:
-        messagebox.showwarning(
-            "Validación", "Ingresa el teléfono del empleado para enviar mensaje.")
-        return
-    messagebox.showinfo(
-        "WhatsApp", f"Mensaje enviado a {telefono} (simulación).")
+    tk.Button(marco_botones_lateral, text="Salir", command=ventana_empleados.destroy,
+              bg="#B71C1C", fg="white", font=("Arial", 12, "bold"), width=20).pack(pady=5)
 
-
-# --- Panel de reportes en el panel derecho ---
-frame_reportes = tk.Frame(frame_right, bg="#0D47A1")
-frame_reportes.pack(pady=20, fill="y")
-
-tk.Button(frame_reportes, text="Reporte por Sucursal", font=("Arial", 12, "bold"),
-          bg="#FFD700", fg="black", width=20, command=generar_reporte_sucursal).pack(pady=10)
-
-tk.Button(frame_reportes, text="Exportar a Excel", font=("Arial", 12, "bold"),
-          bg="#2196F3", fg="white", width=20, command=exportar_excel).pack(pady=10)
-
-tk.Button(frame_reportes, text="Exportar a PDF", font=("Arial", 12, "bold"),
-          bg="#4CAF50", fg="white", width=20, command=exportar_pdf).pack(pady=10)
-
-tk.Button(frame_reportes, text="Enviar WhatsApp", font=("Arial", 12, "bold"),
-          bg="#25D366", fg="white", width=20, command=enviar_whatsapp).pack(pady=10)
-
-# --- Botón regresar al menú principal ---
-
-
-def regresar_menu():
-    root.destroy()
-
-
-tk.Button(frame_reportes, text="Regresar al Menú Principal", font=("Arial", 12, "bold"),
-          bg="#B71C1C", fg="white", width=20, command=regresar_menu).pack(pady=20)
-
-# --- Mainloop ---
-root.mainloop()
+    # --- Cargar empleados al inicio ---
+    cargar_empleados()

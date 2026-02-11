@@ -1,297 +1,235 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import sqlite3
-from PIL import Image, ImageTk
+import pandas as pd
+from datetime import datetime
+import os
+
+DB_PATH = "base_datos/personal.db"
 
 
 def abrir_nomina():
-    # --- Crear tabla nómina ---
-    def crear_tabla_nomina():
-        conn = sqlite3.connect("mi_base.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS nomina (
-            id_nomina INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_empleado INTEGER NOT NULL,
-            periodo TEXT NOT NULL,
-            pago_base REAL,
-            retardos REAL,
-            horas_extras REAL,
-            bonificaciones REAL,
-            descuentos REAL,
-            pago_total REAL,
-            FOREIGN KEY (id_empleado) REFERENCES empleados(id_empleado)
-        )
-        """)
-        conn.commit()
-        conn.close()
-    crear_tabla_nomina()
+    ventana_nomina = tk.Toplevel()
+    ventana_nomina.title("Cálculo de Nómina")
+    ventana_nomina.state("zoomed")
+    ventana_nomina.grab_set()
+    ventana_nomina.config(bg="#f0f0f0")
 
-    # --- Ventana principal ---
-    root = tk.Tk()
-    root.title("Cálculo de Nómina")
-    root.state("zoomed")
-    root.configure(bg="#1A237E")
+    # --- Título principal ---
+    tk.Label(ventana_nomina, text="Cálculo de Nómina",
+             font=("Arial", 18, "bold"), bg="#f0f0f0").pack(pady=10)
 
-    # --- Logo ---
-    try:
-        logo_img = Image.open("imagenes/logo.png")
-        logo_img = logo_img.resize((120, 120))
-        logo = ImageTk.PhotoImage(logo_img)
-        tk.Label(root, image=logo, bg="#1A237E").pack(pady=10)
-        root.logo = logo
-    except:
-        tk.Label(root, text="LOGO", font=("Arial", 20),
-                 bg="#1A237E", fg="white").pack(pady=10)
+    # --- Entradas de rango de fechas ---
+    tk.Label(ventana_nomina, text="Fecha inicio (DD-MM-YYYY):",
+             bg="#f0f0f0").pack()
+    entrada_inicio = tk.Entry(ventana_nomina)
+    entrada_inicio.pack()
 
-    # --- Título ---
-    tk.Label(root, text="Módulo de Cálculo de Nómina",
-             font=("Arial", 20, "bold"), fg="white", bg="#1A237E").pack(pady=10)
+    tk.Label(ventana_nomina, text="Fecha fin (DD-MM-YYYY):", bg="#f0f0f0").pack()
+    entrada_fin = tk.Entry(ventana_nomina)
+    entrada_fin.pack()
 
-    # Aquí después vamos a ir agregando las Partes 2, 3, 4 y 5
-    # (funciones de cálculo, interfaz gráfica, exportación de reportes, validaciones finales)
+    # --- Frame para la tabla ---
+    frame_tabla = tk.Frame(ventana_nomina, bg="#f0f0f0")
+    frame_tabla.pack(fill="both", expand=True, padx=20, pady=10)
 
-    # --- Botón regresar al menú principal ---
-    def regresar_menu():
-        root.destroy()
-        import modulos.principal as principal  # Conexión al archivo principal.py
+    # --- Columnas del reporte ---
+    columnas = ("Empleado", "Salario", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo",
+                "Horas Totales", "Pago base", "Bonificaciones", "Descuentos",
+                "Vacaciones", "Festivos", "Descanso", "Permisos", "Total semanal")
 
-    tk.Button(root, text="Regresar al Menú Principal", font=("Arial", 12),
-              bg="#B71C1C", fg="white", command=regresar_menu).pack(pady=10)
+    tabla_nomina = ttk.Treeview(frame_tabla, columns=columnas, show="headings")
 
-    root.mainloop()
-    # --- Función para calcular nómina ---
-
-    def calcular_nomina(id_empleado, periodo):
-        conn = sqlite3.connect("mi_base.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT fecha, hora_entrada, hora_salida, estatus, salario
-            FROM asistencias
-            WHERE id_empleado=? AND fecha BETWEEN date(?) AND date(?)
-        """, (id_empleado, periodo.split(" - ")[0], periodo.split(" - ")[1]))
-        registros = cursor.fetchall()
-        conn.close()
-
-        pago_base = 0
-        retardos = 0
-        horas_extras = 0
-        bonificaciones = 0
-        descuentos = 0
-
-        # --- Tabla de equivalencias para retardos ---
-        tabla_retardos = {
-            1: 0.25,   # 1 retardo = 1/4 turno descontado
-            2: 0.5,    # 2 retardos = 1/2 turno descontado
-            3: 1.0     # 3 retardos = 1 turno completo descontado
-        }
-
-        contador_retardos = 0
-
-        for reg in registros:
-            fecha, entrada, salida, estatus, salario = reg
-
-            if estatus == "Presente":
-                pago_base += float(salario)
-            elif estatus == "Retardo":
-                pago_base += float(salario)
-                contador_retardos += 1
-            elif estatus == "Falta":
-                descuentos += float(salario)
-
-            # --- Calcular horas extras ---
-            try:
-                h1, m1 = map(int, entrada.split(":"))
-                h2, m2 = map(int, salida.split(":"))
-                entrada_min = h1 * 60 + m1
-                salida_min = h2 * 60 + m2
-                horas_trabajadas = (salida_min - entrada_min) / 60
-                if horas_trabajadas > 8:
-                    horas_extras += horas_trabajadas - 8
-            except:
-                pass
-
-        # --- Aplicar descuentos por retardos acumulados ---
-        if contador_retardos in tabla_retardos:
-            descuento_retardo = tabla_retardos[contador_retardos] * \
-                float(salario)
-            descuentos += descuento_retardo
-
-        # --- Calcular pago total ---
-        pago_total = pago_base + bonificaciones - descuentos
-
-        # --- Guardar en tabla nómina ---
-        conn = sqlite3.connect("mi_base.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO nomina (id_empleado, periodo, pago_base, retardos, horas_extras, bonificaciones, descuentos, pago_total)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (id_empleado, periodo, pago_base, contador_retardos, horas_extras, bonificaciones, descuentos, pago_total))
-        conn.commit()
-        conn.close()
-
-        return pago_total
-    # --- Frame de cálculo y visualización ---
-    frame_nomina = tk.Frame(root, bg="#E3F2FD")
-    frame_nomina.pack(pady=20, padx=20, fill="both", expand=True)
-
-    # --- Selección de empleado ---
-    tk.Label(frame_nomina, text="ID Empleado:", bg="#E3F2FD").grid(
-        row=0, column=0, padx=5, pady=5, sticky="w")
-    entry_id_emp = tk.Entry(frame_nomina)
-    entry_id_emp.grid(row=0, column=1, padx=5, pady=5)
-
-    tk.Label(frame_nomina, text="Periodo (YYYY-MM-DD - YYYY-MM-DD):",
-             bg="#E3F2FD").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-    entry_periodo = tk.Entry(frame_nomina, width=30)
-    entry_periodo.grid(row=1, column=1, padx=5, pady=5)
-
-    # --- Botón calcular nómina ---
-    def ejecutar_calculo():
-        id_emp = entry_id_emp.get()
-        periodo = entry_periodo.get()
-        if not id_emp or not periodo:
-            messagebox.showwarning(
-                "Validación", "Debe ingresar ID de empleado y periodo.")
-            return
-
-        try:
-            pago_total = calcular_nomina(int(id_emp), periodo)
-            messagebox.showinfo(
-                "Cálculo de Nómina", f"Nómina calculada.\nPago total: ${pago_total:.2f}")
-            cargar_nomina()
-        except Exception as e:
-            messagebox.showerror("Error", f"Ocurrió un error: {e}")
-
-    tk.Button(frame_nomina, text="Calcular Nómina", bg="#4CAF50", fg="white",
-              font=("Arial", 12), command=ejecutar_calculo).grid(row=2, column=0, columnspan=2, pady=10)
-
-    # --- Tabla Treeview para visualizar resultados ---
-    columnas_nomina = ("ID Nómina", "ID Empleado", "Periodo", "Pago Base",
-                       "Retardos", "Horas Extras", "Bonificaciones", "Descuentos", "Pago Total")
-    tabla_nomina = ttk.Treeview(
-        frame_nomina, columns=columnas_nomina, show="headings", height=10)
-    tabla_nomina.grid(row=3, column=0, columnspan=2, pady=10, sticky="nsew")
-
-    for col in columnas_nomina:
+    for col in columnas:
         tabla_nomina.heading(col, text=col)
         tabla_nomina.column(col, width=120, anchor="center")
 
-    scrollbar_nomina = tk.Scrollbar(
-        frame_nomina, orient="vertical", command=tabla_nomina.yview)
-    tabla_nomina.configure(yscrollcommand=scrollbar_nomina.set)
-    scrollbar_nomina.grid(row=3, column=2, sticky="ns")
+    tabla_nomina.column("Empleado", width=200, anchor="w")
+    tabla_nomina.column("Salario", width=120, anchor="center")
+    tabla_nomina.column("Total semanal", width=150, anchor="center")
 
-    # --- Función para cargar registros de nómina ---
-    def cargar_nomina():
-        for row in tabla_nomina.get_children():
-            tabla_nomina.delete(row)
+    # --- Scrollbars ---
+    scroll_y = ttk.Scrollbar(
+        frame_tabla, orient="vertical", command=tabla_nomina.yview)
+    scroll_x = ttk.Scrollbar(
+        frame_tabla, orient="horizontal", command=tabla_nomina.xview)
 
-        conn = sqlite3.connect("mi_base.db")
+    tabla_nomina.configure(yscrollcommand=scroll_y.set,
+                           xscrollcommand=scroll_x.set)
+
+    # Ubicar con grid para que se vean bien
+    tabla_nomina.grid(row=0, column=0, sticky="nsew")
+    scroll_y.grid(row=0, column=1, sticky="ns")
+    scroll_x.grid(row=1, column=0, sticky="ew")
+
+    # Expandir tabla dentro del frame
+    frame_tabla.grid_rowconfigure(0, weight=1)
+    frame_tabla.grid_columnconfigure(0, weight=1)
+    # --- Función para formatear horas en HH:MM ---
+
+    def formato_horas(valor):
+        try:
+            horas = int(valor)
+            minutos = int(round((valor - horas) * 60))
+            return f"{horas:02d}:{minutos:02d}"
+        except:
+            return "00:00"
+
+    # --- Función para calcular diferencia entre entrada y salida ---
+    def calcular_diferencia_horas(hora_entrada, hora_salida):
+        try:
+            h1, m1 = map(int, hora_entrada.split(":"))
+            h2, m2 = map(int, hora_salida.split(":"))
+            inicio = h1 * 60 + m1
+            fin = h2 * 60 + m2
+            minutos = fin - inicio
+            return minutos / 60  # convertir a horas decimales
+        except:
+            return 0
+
+    # --- Función para calcular nómina ---
+    def calcular_nomina():
+        fecha_inicio = entrada_inicio.get()
+        fecha_fin = entrada_fin.get()
+
+        try:
+            inicio = datetime.strptime(fecha_inicio, "%d-%m-%Y").date()
+            fin = datetime.strptime(fecha_fin, "%d-%m-%Y").date()
+        except:
+            messagebox.showerror("Formato incorrecto",
+                                 "Usa el formato DD-MM-YYYY.")
+            return
+
+        # Actualizar título dinámico
+        titulo = f"Nómina semanal del {fecha_inicio} al {fecha_fin}"
+        tk.Label(ventana_nomina, text=titulo, font=(
+            "Arial", 16, "bold"), bg="#f0f0f0").pack(pady=5)
+
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM nomina")
-        registros = cursor.fetchall()
+        cursor.execute(
+            "SELECT id_empleado, nombre, apellido_paterno, apellido_materno, salario FROM empleados")
+        empleados = cursor.fetchall()
+
+        # Limpiar tabla antes de recalcular
+        for fila in tabla_nomina.get_children():
+            tabla_nomina.delete(fila)
+
+        dias_map = {
+            "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles",
+            "Thursday": "Jueves", "Friday": "Viernes",
+            "Saturday": "Sábado", "Sunday": "Domingo"
+        }
+
+        for emp in empleados:
+            emp_id, nombre, ap, am, salario_diario = emp
+            nombre_completo = f"{nombre} {ap} {am}"
+
+            dias = {"Lunes": 0, "Martes": 0, "Miércoles": 0,
+                    "Jueves": 0, "Viernes": 0, "Sábado": 0, "Domingo": 0}
+            bonificaciones = 0.0
+            descuentos = 0.0
+            vacaciones = festivos = descanso = permisos = 0
+
+            cursor.execute("""SELECT fecha, hora_entrada, hora_salida, bonificacion, descuento, estatus 
+                              FROM asistencias 
+                              WHERE empleado=? AND fecha BETWEEN ? AND ?""",
+                           (nombre_completo, fecha_inicio, fecha_fin))
+            asistencias = cursor.fetchall()
+
+            for fecha, entrada, salida, bono, desc, estatus in asistencias:
+                try:
+                    dia = dias_map[datetime.strptime(
+                        fecha, "%d-%m-%Y").strftime("%A")]
+                    horas_trabajadas = calcular_diferencia_horas(
+                        entrada, salida)
+                    dias[dia] += horas_trabajadas
+                    if bono:
+                        bonificaciones += float(bono)
+                    if desc:
+                        descuentos += float(desc)
+                    if estatus == "Vacaciones":
+                        vacaciones += 1
+                    elif estatus == "Festivo":
+                        festivos += 1
+                    elif estatus and estatus.lower() == "descanso":
+                        descanso += 1
+                    elif estatus == "Permiso":
+                        permisos += 1
+                except:
+                    continue
+
+            total_horas = sum(dias.values())
+            pago_base = round(total_horas * salario_diario, 2)
+            total_semanal = round(pago_base + bonificaciones - descuentos, 2)
+
+            # Insertar en tabla visual con formato
+            tabla_nomina.insert("", tk.END, values=(
+                nombre_completo, f"${salario_diario:.2f}",
+                formato_horas(dias["Lunes"]), formato_horas(
+                    dias["Martes"]), formato_horas(dias["Miércoles"]),
+                formato_horas(dias["Jueves"]), formato_horas(dias["Viernes"]),
+                formato_horas(dias["Sábado"]), formato_horas(dias["Domingo"]),
+                formato_horas(
+                    total_horas), f"${pago_base:.2f}", f"${bonificaciones:.2f}", f"${descuentos:.2f}",
+                vacaciones, festivos, descanso, permisos,
+                f"${total_semanal:.2f}"
+            ))
+
         conn.close()
 
-        for reg in registros:
-            tabla_nomina.insert("", "end", values=reg)
+    # --- Función para borrar nómina ---
+    def borrar_nomina():
+        for fila in tabla_nomina.get_children():
+            tabla_nomina.delete(fila)
+        messagebox.showinfo(
+            "Nómina", "Se borraron todos los registros de la tabla visual.")
 
-    cargar_nomina()
-    # --- Exportar resultados a Excel ---
-    import pandas as pd
-
+    # --- Función para exportar a Excel ---
     def exportar_excel():
-        conn = sqlite3.connect("mi_base.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM nomina")
-        registros = cursor.fetchall()
-        conn.close()
+        rows = []
+        for item in tabla_nomina.get_children():
+            rows.append(tabla_nomina.item(item)["values"])
 
-        columnas = ["ID Nómina", "ID Empleado", "Periodo", "Pago Base", "Retardos", "Horas Extras",
-                    "Bonificaciones", "Descuentos", "Pago Total"]
-        df = pd.DataFrame(registros, columns=columnas)
-
-        archivo = filedialog.asksaveasfilename(
-            defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-        if archivo:
-            df.to_excel(archivo, index=False)
-            messagebox.showinfo(
-                "Exportación", f"Reporte de nómina exportado a Excel:\n{archivo}")
-
-    tk.Button(frame_nomina, text="Exportar a Excel", bg="#4CAF50", fg="white",
-              font=("Arial", 12), command=exportar_excel).grid(row=4, column=0, padx=5, pady=10)
-
-    # --- Exportar resultados a PDF ---
-    import pdfkit
-
-    def exportar_pdf():
-        conn = sqlite3.connect("mi_base.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM nomina")
-        registros = cursor.fetchall()
-        conn.close()
-
-        html = "<h2>Reporte de Nómina</h2><table border='1' cellspacing='0' cellpadding='5'>"
-        html += "<tr><th>ID Nómina</th><th>ID Empleado</th><th>Periodo</th><th>Pago Base</th><th>Retardos</th><th>Horas Extras</th><th>Bonificaciones</th><th>Descuentos</th><th>Pago Total</th></tr>"
-        for reg in registros:
-            html += f"<tr><td>{reg[0]}</td><td>{reg[1]}</td><td>{reg[2]}</td><td>${reg[3]:.2f}</td><td>{reg[4]}</td><td>{reg[5]:.2f}</td><td>${reg[6]:.2f}</td><td>${reg[7]:.2f}</td><td>${reg[8]:.2f}</td></tr>"
-        html += "</table>"
-
-        archivo = filedialog.asksaveasfilename(
-            defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
-        if archivo:
-            pdfkit.from_string(html, archivo)
-            messagebox.showinfo(
-                "Exportación", f"Reporte de nómina exportado a PDF:\n{archivo}")
-
-    tk.Button(frame_nomina, text="Exportar a PDF", bg="#2196F3", fg="white",
-              font=("Arial", 12), command=exportar_pdf).grid(row=4, column=1, padx=5, pady=10)
-    # --- Validaciones finales ---
-
-    def validar_campos():
-        if not entry_id_emp.get() or not entry_periodo.get():
+        if not rows:
             messagebox.showwarning(
-                "Validación", "Debe ingresar ID de empleado y periodo.")
-            return False
-        return True
-
-    # --- Botón imprimir reporte ---
-    def imprimir_reporte():
-        if not validar_campos():
+                "Exportación", "No hay datos en la tabla para exportar.")
             return
 
-        id_emp = entry_id_emp.get()
-        periodo = entry_periodo.get()
+        df = pd.DataFrame(rows, columns=["Empleado", "Salario", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo",
+                                         "Horas Totales", "Pago base", "Bonificaciones", "Descuentos",
+                                         "Vacaciones", "Festivos", "Descanso", "Permisos", "Total semanal"])
+        ruta = filedialog.asksaveasfilename(
+            defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")])
+        if ruta:
+            df.to_excel(ruta, index=False)
+            messagebox.showinfo(
+                "Exportación", f"Archivo Excel guardado en:\n{ruta}")
+            try:
+                os.startfile(ruta)
+            except:
+                pass
+    # --- Frame de botones de acción ---
+    frame_botones = tk.Frame(ventana_nomina, bg="#f0f0f0")
+    frame_botones.pack(pady=10)
 
-        conn = sqlite3.connect("mi_base.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM nomina WHERE id_empleado=? AND periodo=?
-        """, (id_emp, periodo))
-        registros = cursor.fetchall()
-        conn.close()
+    # Botón para calcular nómina
+    tk.Button(frame_botones, text="Calcular Nómina", command=calcular_nomina,
+              bg="#4CAF50", fg="white", font=("Arial", 12, "bold"), width=18).pack(side="left", padx=10)
 
-        if not registros:
-            messagebox.showwarning(
-                "Impresión", "No hay registros de nómina para este empleado en el periodo.")
-            return
+    # Botón para borrar nómina
+    tk.Button(frame_botones, text="Borrar Nómina", command=borrar_nomina,
+              bg="#FF9800", fg="white", font=("Arial", 12, "bold"), width=18).pack(side="left", padx=10)
 
-        reporte = "Reporte de Nómina\n\n"
-        for reg in registros:
-            reporte += f"ID Nómina: {reg[0]} | Empleado: {reg[1]} | Periodo: {reg[2]} | Pago Base: ${reg[3]:.2f} | Retardos: {reg[4]} | Horas Extras: {reg[5]:.2f} | Bonificaciones: ${reg[6]:.2f} | Descuentos: ${reg[7]:.2f} | Pago Total: ${reg[8]:.2f}\n"
+    # Botón para exportar a Excel
+    tk.Button(frame_botones, text="Exportar Excel", command=exportar_excel,
+              bg="#009688", fg="white", font=("Arial", 12, "bold"), width=18).pack(side="left", padx=10)
 
-        # Mostrar reporte en ventana emergente
-        messagebox.showinfo("Impresión", reporte)
+    # Botón para salir y volver al menú principal
+    def salir_nomina():
+        ventana_nomina.destroy()
+        # Aquí puedes llamar a tu menú principal si lo tienes en otra función
+        # abrir_menu_principal()
 
-    tk.Button(frame_nomina, text="Imprimir Reporte", bg="#FF9800", fg="white",
-              font=("Arial", 12), command=imprimir_reporte).grid(row=5, column=0, padx=5, pady=10)
-
-    # --- Botón regresar al menú principal ---
-    def regresar_menu():
-        root.destroy()
-        import modulos.principal as principal  # Conexión al archivo principal.py
-
-    tk.Button(root, text="Regresar al Menú Principal", font=("Arial", 12),
-              bg="#B71C1C", fg="white", command=regresar_menu).pack(pady=10)
-
-    # --- Mainloop final ---
+    tk.Button(frame_botones, text="Salir", command=salir_nomina,
+              bg="#B71C1C", fg="white", font=("Arial", 12, "bold"), width=18).pack(side="left", padx=10)
