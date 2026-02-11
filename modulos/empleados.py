@@ -12,6 +12,7 @@ def abrir_empleados():
     ventana_empleados.state("zoomed")
     ventana_empleados.config(bg="#f0f0f0")
     ventana_empleados.grab_set()
+    print("hola")
 
     tk.Label(ventana_empleados, text="Gestión de Empleados",
              font=("Arial", 24, "bold"), bg="#f0f0f0").pack(pady=20)
