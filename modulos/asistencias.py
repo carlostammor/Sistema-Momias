@@ -14,8 +14,7 @@ def abrir_asistencias():
     ventana_asistencias.state("zoomed")
     ventana_asistencias.config(bg="#f0f0f0")
     ventana_asistencias.grab_set()
-    print("Carlos")
-
+  
     # --- Título ---
     tk.Label(ventana_asistencias, text="Registro de Asistencias",
              font=("Arial", 24, "bold"), bg="#f0f0f0").pack(pady=10)
@@ -37,16 +36,13 @@ def abrir_asistencias():
     marco_tabla.pack(side="bottom", fill="both", expand=True, pady=10)
 
     # --- Campo Empleado con ComboBox desde BD ---
-    tk.Label(marco_form, text="Empleado:", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Empleado:", bg="#f0f0f0", font=("Arial", 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
     empleado_var = tk.StringVar()
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT nombre, apellido_paterno, apellido_materno FROM empleados")
-        empleados_lista = [
-            f"{row[0]} {row[1]} {row[2]}" for row in cursor.fetchall()]
+        cursor.execute("SELECT nombre, apellido_paterno, apellido_materno FROM empleados")
+        empleados_lista = [f"{row[0]} {row[1]} {row[2]}" for row in cursor.fetchall()]
         conn.close()
     except Exception as e:
         empleados_lista = []
@@ -59,66 +55,73 @@ def abrir_asistencias():
     combo_empleado['state'] = "normal"
 
     # --- Hora de entrada ---
-    tk.Label(marco_form, text="Hora de Entrada (HH:MM):", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=1, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Hora de Entrada (HH:MM):", bg="#f0f0f0", font=("Arial", 12)).grid(row=1, column=0, padx=5, pady=5, sticky="e")
     entrada_var = tk.StringVar()
-    tk.Entry(marco_form, textvariable=entrada_var, font=("Arial", 12),
-             width=40).grid(row=1, column=1, padx=5, pady=5)
+    tk.Entry(marco_form, textvariable=entrada_var, font=("Arial", 12), width=40).grid(row=1, column=1, padx=5, pady=5)
 
     # --- Hora de salida ---
-    tk.Label(marco_form, text="Hora de Salida (HH:MM):", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=2, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Hora de Salida (HH:MM):", bg="#f0f0f0", font=("Arial", 12)).grid(row=2, column=0, padx=5, pady=5, sticky="e")
     salida_var = tk.StringVar()
-    tk.Entry(marco_form, textvariable=salida_var, font=("Arial", 12),
-             width=40).grid(row=2, column=1, padx=5, pady=5)
+    tk.Entry(marco_form, textvariable=salida_var, font=("Arial", 12), width=40).grid(row=2, column=1, padx=5, pady=5)
 
     # --- Estatus ---
-    tk.Label(marco_form, text="Estatus:", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=3, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Estatus:", bg="#f0f0f0", font=("Arial", 12)).grid(row=3, column=0, padx=5, pady=5, sticky="e")
     estatus_var = tk.StringVar()
     combo_estatus = ttk.Combobox(marco_form, textvariable=estatus_var,
-                                 values=["Puntual", "Retardo",
-                                         "Falta", "Justificado"],
+                                 values=["Puntual", "Retardo", "Falta", "Justificado"],
                                  state="readonly", font=("Arial", 12), width=38)
     combo_estatus.grid(row=3, column=1, padx=5, pady=5)
 
     # --- Observaciones ---
-    tk.Label(marco_form, text="Observaciones:", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=4, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Observaciones:", bg="#f0f0f0", font=("Arial", 12)).grid(row=4, column=0, padx=5, pady=5, sticky="e")
     obs_var = tk.StringVar()
-    tk.Entry(marco_form, textvariable=obs_var, font=("Arial", 12),
-             width=40).grid(row=4, column=1, padx=5, pady=5)
+    tk.Entry(marco_form, textvariable=obs_var, font=("Arial", 12), width=40).grid(row=4, column=1, padx=5, pady=5)
 
     # --- Bonificación ---
-    tk.Label(marco_form, text="Bonificación:", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=5, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Bonificación:", bg="#f0f0f0", font=("Arial", 12)).grid(row=5, column=0, padx=5, pady=5, sticky="e")
     bonificacion_var = tk.StringVar()
-    tk.Entry(marco_form, textvariable=bonificacion_var, font=(
-        "Arial", 12), width=20).grid(row=5, column=1, padx=5, pady=5, sticky="w")
+    tk.Entry(marco_form, textvariable=bonificacion_var, font=("Arial", 12), width=20).grid(row=5, column=1, padx=5, pady=5, sticky="w")
     motivo_bonificacion_var = tk.StringVar()
     ttk.Combobox(marco_form, textvariable=motivo_bonificacion_var,
                  values=["Error en vacaciones", "Error en nómina", "Otro"],
                  state="readonly", font=("Arial", 12), width=18).grid(row=5, column=1, padx=5, pady=5, sticky="e")
 
     # --- Descuento ---
-    tk.Label(marco_form, text="Descuento:", bg="#f0f0f0", font=(
-        "Arial", 12)).grid(row=6, column=0, padx=5, pady=5, sticky="e")
+    tk.Label(marco_form, text="Descuento:", bg="#f0f0f0", font=("Arial", 12)).grid(row=6, column=0, padx=5, pady=5, sticky="e")
     descuento_var = tk.StringVar()
-    tk.Entry(marco_form, textvariable=descuento_var, font=("Arial", 12),
-             width=20).grid(row=6, column=1, padx=5, pady=5, sticky="w")
+    tk.Entry(marco_form, textvariable=descuento_var, font=("Arial", 12), width=20).grid(row=6, column=1, padx=5, pady=5, sticky="w")
     motivo_descuento_var = tk.StringVar()
     ttk.Combobox(marco_form, textvariable=motivo_descuento_var,
                  values=["Retardo", "Falta", "Permiso sin goce", "Otro"],
                  state="readonly", font=("Arial", 12), width=18).grid(row=6, column=1, padx=5, pady=5, sticky="e")
 
     # --- Fecha de captura ---
-    tk.Label(marco_form, text="Fecha de Captura (DD-MM-YYYY):", bg="#f0f0f0",
+    tk.Label(marco_form, text="Fecha de Captura (DD/MM/YYYY):", bg="#f0f0f0",
              font=("Arial", 12)).grid(row=7, column=0, padx=5, pady=5, sticky="e")
-    fecha_captura_var = tk.StringVar()
-    tk.Entry(marco_form, textvariable=fecha_captura_var, font=(
-        "Arial", 12), width=40).grid(row=7, column=1, padx=5, pady=5)
-    # --- Función para calcular retardos ---
 
+    fecha_captura_var = tk.StringVar()
+    # Inicializar con la fecha actual en formato dd/mm/yyyy
+    fecha_captura_var.set(datetime.now().strftime("%d/%m/%Y"))
+
+    # Guardamos la referencia del Entry en una variable para poder trabajar con el cursor
+    entry_fecha = tk.Entry(marco_form, textvariable=fecha_captura_var,
+                           font=("Arial", 12), width=40)
+    entry_fecha.grid(row=7, column=1, padx=5, pady=5)
+    # --- Función para mover cursor con Enter ---
+    def mover_cursor(event):
+        texto = fecha_captura_var.get()
+        pos = entry_fecha.index(tk.INSERT)
+        siguiente = texto.find("/", pos)
+        if siguiente != -1:
+            # Colocar cursor justo antes de la diagonal encontrada
+            entry_fecha.icursor(siguiente)
+        else:
+            # Si ya pasó el último "/", capturar automáticamente
+            guardar_asistencia()
+
+    # Asociar Enter al movimiento
+    entry_fecha.bind("<Return>", mover_cursor)
+    # --- Función para calcular retardos ---
     def calcular_retardo(hora_entrada):
         try:
             hora = datetime.strptime(hora_entrada, "%H:%M")
@@ -167,14 +170,12 @@ def abrir_asistencias():
 
         # Validación para evitar registros vacíos
         if empleado == "--" and hora_entrada == "00:00" and hora_salida == "00:00" and estatus == "--":
-            messagebox.showwarning(
-                "Aviso", "No se puede guardar un registro vacío")
+            messagebox.showwarning("Aviso", "No se puede guardar un registro vacío")
             return
 
         retardo = calcular_retardo(hora_entrada)
         if retardo is None:
-            messagebox.showerror(
-                "Error", "Formato de hora inválido (usa HH:MM)")
+            messagebox.showerror("Error", "Formato de hora inválido (usa HH:MM)")
             return
 
         descuento_aplicado = calcular_descuento(retardo)
@@ -183,7 +184,7 @@ def abrir_asistencias():
         if fecha_captura_var.get().strip():
             fecha_captura = fecha_captura_var.get().strip()
         else:
-            fecha_captura = datetime.now().strftime("%d-%m-%Y")
+            fecha_captura = datetime.now().strftime("%d/%m/%Y")
 
         # --- Alerta inmediata al capturista ---
         alerta = (f"Empleado: {empleado}\n"
@@ -218,13 +219,11 @@ def abrir_asistencias():
         descuento_var.set("")
         motivo_descuento_var.set("")
         fecha_captura_var.set("")
-
     # --- Función para corregir asistencia ---
     def corregir_asistencia():
         seleccionado = tabla.selection()
         if not seleccionado:
-            messagebox.showwarning(
-                "Aviso", "Selecciona un registro para corregir")
+            messagebox.showwarning("Aviso", "Selecciona un registro para corregir")
             return
         item = tabla.item(seleccionado)
         valores = item["values"]
@@ -239,13 +238,13 @@ def abrir_asistencias():
         motivo_bonificacion_var.set(valores[6])
         descuento_var.set(valores[7])
         motivo_descuento_var.set(valores[8])
+        fecha_captura_var.set(valores[10])
 
     # --- Función para eliminar asistencia ---
     def eliminar_asistencia():
         seleccionado = tabla.selection()
         if not seleccionado:
-            messagebox.showwarning(
-                "Aviso", "Selecciona un registro para eliminar")
+            messagebox.showwarning("Aviso", "Selecciona un registro para eliminar")
             return
         item = tabla.item(seleccionado)
         empleado = item["values"][0]
@@ -253,8 +252,7 @@ def abrir_asistencias():
 
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM asistencias WHERE empleado=? AND fecha=?", (empleado, fecha))
+        cursor.execute("DELETE FROM asistencias WHERE empleado=? AND fecha=?", (empleado, fecha))
         conn.commit()
         conn.close()
         cargar_asistencias()
@@ -314,14 +312,12 @@ def abrir_asistencias():
     tabla.column("Fecha", width=150)
 
     # Scroll vertical
-    scroll_y = ttk.Scrollbar(
-        marco_tabla, orient="vertical", command=tabla.yview)
+    scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=tabla.yview)
     tabla.configure(yscrollcommand=scroll_y.set)
     scroll_y.pack(side="right", fill="y")
 
     # Scroll horizontal
-    scroll_x = ttk.Scrollbar(
-        marco_tabla, orient="horizontal", command=tabla.xview)
+    scroll_x = ttk.Scrollbar(marco_tabla, orient="horizontal", command=tabla.xview)
     tabla.configure(xscrollcommand=scroll_x.set)
     scroll_x.pack(side="bottom", fill="x")
 
